@@ -49,11 +49,18 @@ def get_dnie_connection() -> PCSCCardConnection:
     """Get DNIe card connection.
 
     Wait until the DNIe is connected to the reader and return a connection.
+
+    Note: We re-create the PCSCCardConnection from the reader rather than
+    using card_service.connection directly. As of pyscard 2.2.x, the
+    PCSCCardRequest internally releases its SCARD context after waitforcard()
+    returns, leaving card_service.connection.hcontext as None and causing
+    SCardConnect to fail with "Expected a python long as SCARDCONTEXT".
     """
     card_request = CardRequest(timeout=120, cardType=DNIv2CardType())
     card_service = card_request.waitforcard()
 
-    if card_service is not None:
-        return card_service.connection
-    else:
+    if card_service is None:
         raise CardError(t["errors"]["dnie_not_found"])
+
+    # Create a fresh connection from the reader to avoid stale hcontext
+    return PCSCCardConnection(card_service.connection.component.reader)
