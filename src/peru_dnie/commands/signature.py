@@ -1,4 +1,6 @@
 # Standard Library
+import os
+import tempfile
 from enum import Enum
 from pathlib import Path
 
@@ -7,6 +9,8 @@ from peru_dnie.apdu import APDUCommand, APDUError
 from peru_dnie.context import Context
 from peru_dnie.hashes import HashFunction
 from peru_dnie.i18n import t
+
+_MAX_INPUT_BYTES = 512 * 1024 * 1024  # 512 MB
 
 # Local Modules
 from .general import SELECT_PKI_APP_CMD, PinType, verify_pin
@@ -111,8 +115,13 @@ def sign_file(
 ) -> None:
     """Sign a file with the DNIe"""
 
+    if input_file.stat().st_size > _MAX_INPUT_BYTES:
+        raise ValueError(t["errors"]["input_file_too_large"])
+
     input_bytes = input_file.read_bytes()
 
     signature = sign_bytes(ctx, input_bytes)
 
-    output_file.write_bytes(signature)
+    tmp = output_file.with_suffix(output_file.suffix + ".tmp")
+    tmp.write_bytes(signature)
+    os.replace(tmp, output_file)

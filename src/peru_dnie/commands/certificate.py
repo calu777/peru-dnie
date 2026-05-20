@@ -1,8 +1,12 @@
 # Standard Library
+import logging
+import os
 from pathlib import Path
 
 # Third Party Library
 from rich.status import Status
+
+logger = logging.getLogger(__name__)
 
 # First Party Library
 from peru_dnie.apdu import APDUCommand, APDUError
@@ -35,7 +39,7 @@ def extract_certificate(ctx: Context, cert_type: CertificateType) -> bytes:
     r = ctx.transmit(SELECT_PKI_APP_CMD)
 
     if ctx.cli.DEBUG:
-        print("Select PKI: '{r:!r}'")
+        logger.debug("Select PKI: %r", r)
 
     if not r.ok:
         raise APDUError(t["errors"]["could_not_select_pki"].format(repr(r)))
@@ -52,7 +56,7 @@ def extract_certificate(ctx: Context, cert_type: CertificateType) -> bytes:
     r = ctx.transmit(select_certificate_cmd)
 
     if ctx.cli.DEBUG:
-        print(f"Select ({cert_type}) certificate APDU response: '{r:!r}'")
+        logger.debug("Select (%s) certificate APDU response: %r", cert_type, r)
 
     if not r.ok:
         raise APDUError(t["errors"]["could_not_select_cert"].format(repr(r)))
@@ -83,24 +87,25 @@ def extract_certificate(ctx: Context, cert_type: CertificateType) -> bytes:
         if r.data is None:
             raise APDUError(t["errors"]["could_not_read_cert"].format(repr(r)))
 
+        # Break if Status Word is found
+        if (r.sw1, r.sw2) == (0x62, 0x82):
+            # Last chunk: accumulate and exit
+            output_certificate += r.data[3:]
+            success = True
+            break
+
+        # Validate TLV tag before accumulating data
+        if r.data[0] != 0x53 or not r.ok:
+            raise APDUError(t["errors"]["wrong_while_reading"].format(repr(r)))
+
         # First two bytes are the tag. Third byte is length (should be 0xe4).
         # See TLV frame.
         output_certificate += r.data[3:]
 
         if ctx.cli.DEBUG:
-            print("-------------------")
-            print(f"Response '{r:!r}'")
-            print("  ", "Data", r.data)
-            print("  ", "Offset:", [hex(j) for j in read_cert_apdu_command.data])
-            print("-------------------\n")
-
-        # Break if Status Word is found
-        if (r.sw1, r.sw2) == (0x62, 0x82):
-            success = True
-            break
-
-        if r.data[0] != 0x53 or not r.ok:
-            raise APDUError(t["errors"]["wrong_while_reading"].format(repr(r)))
+            logger.debug("Response: %r", r)
+            logger.debug("  Data: %s", r.data)
+            logger.debug("  Offset: %s", [hex(j) for j in read_cert_apdu_command.data])
 
         # Update reading command with new offset
         offset = int.from_bytes(read_cert_apdu_command.data[2:]) + 0xE4
@@ -132,5 +137,7 @@ def extract_certificate_to_file(
     else:
         raise TypeError(t["errors"]["certificate_not_supported"])
 
-    output_file.write_bytes(certificate)
+    tmp = output_file.with_suffix(output_file.suffix + ".tmp")
+    tmp.write_bytes(certificate)
+    os.replace(tmp, output_file)
     ctx.cli.console.print(t["certificates"]["wrote_cert"].format(output_file.name))

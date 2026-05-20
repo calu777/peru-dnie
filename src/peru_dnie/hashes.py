@@ -26,7 +26,7 @@ class HashFunction:
         elif self.name == "sha384":
             return hash_sha384(input_bytes)
         elif self.name == "sha512":
-            return hash_sha384(input_bytes)
+            return hash_sha512(input_bytes)
         else:
             raise TypeError("Hash function not supported")
 

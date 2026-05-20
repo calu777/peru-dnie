@@ -13,7 +13,7 @@ def get_current_language():
         current_lang = "en"
 
     force_lang = os.getenv("PERUDNIE_LANG", None)
-    if force_lang is not None:
+    if force_lang is not None and force_lang in ["en", "es"]:
         current_lang = force_lang
 
     return current_lang
@@ -64,6 +64,10 @@ LANG = {
             "failed_pin": "Failed to verify PIN: '{}'",
             "could_not_set_env": "Could not set security environment: '{}'",
             "could_not_sign": "Could not sign payload: '{}'",
+            "pin_too_short": "PIN must be at least 4 characters",
+            "pin_too_long": "PIN must be at most 16 characters",
+            "lc_too_large": "'lc' must be <= 255 (use extended-length APDU for larger payloads)",
+            "input_file_too_large": "Input file exceeds maximum allowed size of 512 MB",
         },
     },
     "es": {
@@ -110,6 +114,10 @@ LANG = {
             "failed_pin": "Fallo al verificar el PIN: '{:!r}'",
             "could_not_set_env": "No se pudo configurar el entorno de seguridad: '{:!r}'",
             "could_not_sign": "No se pudo firmar el payload: '{:!r}'",
+            "pin_too_short": "El PIN debe tener al menos 4 caracteres",
+            "pin_too_long": "El PIN debe tener como máximo 16 caracteres",
+            "lc_too_large": "'lc' debe ser <= 255 (usa APDU de longitud extendida para payloads mayores)",
+            "input_file_too_large": "El archivo de entrada supera el tamaño máximo permitido de 512 MB",
         },
     },
 }

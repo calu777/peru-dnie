@@ -31,6 +31,9 @@ class APDUCommand:
         elif self.data is not None and self.lc != len(self.data):
             raise ValueError(t["errors"]["lc_must_length"])
 
+        if self.lc is not None and self.lc > 255:
+            raise ValueError(t["errors"]["lc_too_large"])
+
     def serialize(self) -> bytes:
         command = bytes([self.cla, self.ins, self.p1, self.p2])
 

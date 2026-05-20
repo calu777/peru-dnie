@@ -43,6 +43,10 @@ SELECT_PKI_APP_CMD: Final = APDUCommand(
 )
 
 
+_PIN_MIN_LEN = 4
+_PIN_MAX_LEN = 16
+
+
 def verify_pin(ctx: Context, *, pin_type: PinType) -> bool:
     """Verify the PIN before a DNIe cryptographic operation"""
     pin = Prompt.ask(
@@ -51,18 +55,28 @@ def verify_pin(ctx: Context, *, pin_type: PinType) -> bool:
         console=ctx.cli.console,
     )
 
-    encoded_pin = pin.encode("ascii")
+    if len(pin) < _PIN_MIN_LEN:
+        raise ValueError(t["errors"]["pin_too_short"])
+    if len(pin) > _PIN_MAX_LEN:
+        raise ValueError(t["errors"]["pin_too_long"])
 
-    verify_command = APDUCommand(
-        cla=0x00,
-        ins=0x20,
-        p1=0x00,
-        p2=pin_type.value,
-        lc=len(encoded_pin),
-        data=encoded_pin,
-    )
+    encoded_pin = bytearray(pin.encode("ascii"))
 
-    r = ctx.transmit(verify_command)
+    try:
+        verify_command = APDUCommand(
+            cla=0x00,
+            ins=0x20,
+            p1=0x00,
+            p2=pin_type.value,
+            lc=len(encoded_pin),
+            data=bytes(encoded_pin),
+        )
+
+        r = ctx.transmit(verify_command)
+    finally:
+        # Zero the PIN bytes in memory as soon as possible
+        for i in range(len(encoded_pin)):
+            encoded_pin[i] = 0
 
     if not r.ok:
         raise RuntimeError(t["errors"]["failed_pin"].format(repr(r)))
